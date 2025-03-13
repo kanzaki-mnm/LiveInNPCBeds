@@ -7,10 +7,6 @@ using StardewModdingAPI;
 using Microsoft.Xna.Framework;
 using StardewValley.Objects;
 using StardewValley;
-using StardewValley.Locations;
-using System;
-using System.Collections.Generic;
-using StardewValley.Pathfinding;
 
 // TODO:
 // NPCが自分のベッドに向かうスケジュールを設定
@@ -26,62 +22,74 @@ namespace LiveInNPCBeds
     {
 
         public static IMonitor ModMonitor = null!;
-        private ModConfig Config;
+        private static ModConfig Config;
+        public static ModEntry Instance;
 
         public override void Entry(IModHelper helper)
         {
             ModMonitor = Monitor;
+            Instance = this;
             var harmony = new Harmony(ModManifest.UniqueID);
 
             // ✅ config.json を読み込む！
             Config = helper.ReadConfig<ModConfig>();
 
-            // ✅ ゲーム開始時にベッドを配置！
-            helper.Events.GameLoop.DayStarted += OnDayStarted;
+            // ✅ loadObjects() の後にベッドを配置
+            harmony.Patch(
+                original: AccessTools.Method(typeof(GameLocation), "loadObjects"),
+                prefix: new HarmonyMethod(typeof(ModEntry), nameof(LoadObjects_Prefix))
+            );
             
             harmony.Patch(
                 original: AccessTools.Method(typeof(NPC), "resetForNewDay"),
                 postfix: new HarmonyMethod(typeof(ModEntry), nameof(ResetForNewDay_Postfix))
             );
-
-            // harmony.Patch(
-            //     original: AccessTools.Method(typeof(NPC), "behaviorAtGameTick"),
-            //     postfix: new HarmonyMethod(typeof(ModEntry), nameof(BehaviorAtGameTick_Postfix))
-            // );
         }
 
-        private void OnDayStarted(object sender, StardewModdingAPI.Events.DayStartedEventArgs e)
+        public static bool LoadObjects_Prefix(GameLocation __instance)
         {
-            if (Config.EnableInitialBeds)
+            if (!Context.IsMainPlayer) 
             {
-                ApplyInitialBeds();
+                return true; // マルチプレイではホストのみが処理
             }
+
+            Instance.ApplyInitialBeds(__instance);
+            return true;
         }
 
-        private void ApplyInitialBeds()
+        public void ApplyInitialBeds(GameLocation __instance)
         {
             foreach (var entry in Config.InitialBeds)
             {
-                GameLocation location = Game1.getLocationFromName(entry.Location);
-                if (location == null)
+                if (__instance == null || entry.Location != __instance.NameOrUniqueName)
                 {
-                    Monitor.Log($"Error: Location '{entry.Location}' not found.", LogLevel.Warn);
                     continue;
                 }
 
+                if (entry.Location != __instance.NameOrUniqueName)
+                {
+                    return;
+                }
+
                 Vector2 bedTile = new Vector2(entry.TileX, entry.TileY);
-                NPCBedFurniture bed = new NPCBedFurniture("Custom_NPCBed", bedTile);
-                bed.AssignToNPC(entry.NPC);
+                BedFurniture bed = new BedFurniture("Custom_NPCBed", bedTile);
 
-                // ✅ ベッドを追加
-                location.furniture.Add(bed);
+                // ✅ NPCをアサイン
+                AssignBedToNPC(bed, entry.NPC);
 
-                Monitor.Log($"Placed NPC {entry.NPC}'s bed at {entry.Location} ({entry.TileX}, {entry.TileY})", LogLevel.Info);
+                __instance.furniture.Add(bed);
+                ModMonitor.Log($"[DEBUG] Placed NPC {entry.NPC}'s bed at {entry.Location} ({entry.TileX}, {entry.TileY})", LogLevel.Debug);
             }
         }
 
-        public static void ResetForNewDay_Postfix(NPC __instance)
+
+        public static void ResetForNewDay_Postfix(NPC __instance, int dayOfMonth)
         {
+            if (__instance.Name != "Seiris")
+            {
+                return;
+            }
+
             if (__instance == null || __instance.currentLocation == null)
             {
                 return;
@@ -89,18 +97,17 @@ namespace LiveInNPCBeds
 
             // ✅ NPC専用ベッドを探す
             GameLocation location = __instance.currentLocation;
-            var npcBed = location.furniture.OfType<NPCBedFurniture>()
-                .FirstOrDefault(bed => bed.GetAssignedNPC() == __instance.Name);
+
+            // ✅ `modData` に `AssignedNPC` を持つ `BedFurniture` を検索
+            var npcBed = location.furniture
+                .OfType<BedFurniture>()
+                .FirstOrDefault(bed => GetAssignedNPC(bed) == __instance.Name);
 
             if (npcBed != null)
             {
                 // ✅ NPCをベッドの位置に移動
-                __instance.setTilePosition((int)npcBed.TileLocation.X, (int)npcBed.TileLocation.Y);
-                ModMonitor.Log($"Placed NPC {__instance.Name} at {location.NameOrUniqueName} ({(int)npcBed.TileLocation.X}, {(int)npcBed.TileLocation.Y})", LogLevel.Info);
-            }
-            else
-            {
-                ModMonitor.Log($"NPC {__instance.Name}'s bed is NOT found", LogLevel.Info);
+                __instance.setTilePosition((int)npcBed.TileLocation.X, (int)npcBed.TileLocation.Y + 1);
+                ModMonitor.Log($"[DEBUG] Placed NPC {__instance.Name} at {location.NameOrUniqueName} ({(int)npcBed.TileLocation.X}, {(int)npcBed.TileLocation.Y})", LogLevel.Debug);
             }
         }
 
@@ -131,6 +138,26 @@ namespace LiveInNPCBeds
         //     }
         // }
 
+        public static void AssignBedToNPC(BedFurniture bed, string npcName)
+        {
+            if (bed == null || string.IsNullOrEmpty(npcName))
+            {
+                return;
+            }
+            // ✅ `modData` に `AssignedNPC` を設定
+            bed.modData["AssignedNPC"] = npcName;
+        }
+
+        public static string GetAssignedNPC(BedFurniture bed)
+        {
+            if (bed == null || !bed.modData.ContainsKey("AssignedNPC"))
+            {
+                return null;
+            }
+            return bed.modData["AssignedNPC"];
+        }
+
+
     }
 
     public class ModConfig
@@ -146,74 +173,5 @@ namespace LiveInNPCBeds
         public int TileY { get; set; } = 0;
         public string NPC { get; set; } = "";
     }
-
-    public class NPCBedFurniture : BedFurniture
-    {
-        public NPCBedFurniture(string itemId, Vector2 tile)
-            : base(itemId, tile)
-        {
-        }
-
-        // ✅ 明示的に Location プロパティを定義
-        public override GameLocation Location
-        {
-            get { return base.Location; }
-            set { base.Location = value; }
-        }
-
-        // ✅ プレイヤーが寝れないようにする
-        // public override bool CanModifyBed(Farmer who)
-        // {
-        //     return true; // プレイヤーが移動・削除できない
-        //     // return false; // プレイヤーが移動・削除できない
-        // }
-
-        // ✅ NPCをアサインするための `modData`
-        public void AssignToNPC(string npcName)
-        {
-            modData["AssignedNPC"] = npcName;
-        }
-
-        public string GetAssignedNPC()
-        {
-            return modData.ContainsKey("AssignedNPC") ? modData["AssignedNPC"] : null;
-        }
-
-        // ✅ NPCのためにベッドを予約する
-        public override void ReserveForNPC()
-        {
-            if (!mutex.IsLocked()) mutex.RequestLock();
-        }
-
-        // ✅ NPCがこのベッドを使っているかチェック
-        public bool IsBeingUsedByNPC()
-        {
-            if (mutex.IsLocked()) 
-            {
-                return true;
-            }
-
-            if (Location == null) 
-            {
-                return false;
-            }
-
-            Rectangle bedBounds = GetBoundingBox();
-            foreach (NPC npc in Location.characters)
-            {
-                if (npc.GetBoundingBox().Intersects(bedBounds))
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        // ✅ NPCがベッドに向かう位置を決める
-        public override Point GetBedSpot()
-        {
-            return new Point((int)tileLocation.X, (int)tileLocation.Y);
-        }
-        
-    }
+    
 }

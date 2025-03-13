@@ -1,0 +1,11 @@
+{
+    "EnableInitialBeds": true,
+    "InitialBeds": [
+        {
+            "Location": "FarmHouse",
+            "TileX": 10,
+            "TileY": 3,
+            "NPC": "Seiris"
+        }
+    ]
+}

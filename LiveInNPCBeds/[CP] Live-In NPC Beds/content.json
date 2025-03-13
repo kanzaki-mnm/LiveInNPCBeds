@@ -10,7 +10,19 @@
             "Action": "EditData",
             "Target": "Data/Furniture",
             "Entries": {
-                "Custom_NPCBed": "NPC Bed/bed/2 4/2 3/1/1/-1/同居用ベッド/0/Mods\\kanzaki.LiveInNPCBeds-CP\\bed/true"
+                "Custom_NPCBed": "NPC Bed/bed/2 4/2 3/1/5000/-1/同居用ベッド/0/Mods\\kanzaki.LiveInNPCBeds-CP\\bed/true"
+            }
+        },
+        {
+            "LogName": "Add NPC Bed to Robin's Shop",
+            "Action": "EditData",
+            "Target": "Data/Shops",
+            "TargetField": [ "Carpenter", "Items" ],
+            "Entries": 
+            {
+                "Custom_NPCBed": {
+                    "Id": "Custom_NPCBed","ItemId":"(F)Custom_NPCBed","Price": 5000
+                }
             }
         }
     ]

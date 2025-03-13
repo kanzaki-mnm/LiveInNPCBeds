@@ -11,6 +11,14 @@ using StardewValley.TerrainFeatures;
 using StardewValley.Objects;
 using System.Reflection;
 
+// TODO:
+// NPC用ベッドの家具定義
+// ロビンの店で買えるようにする
+// NPCの専用ベッドを設定できる
+// NPCが自分のベッドに向かうスケジュールを設定
+// NPC用ベッドの経路探索の調整
+// FarmHouseに初期ベッドを配置する機能
+
 namespace LiveInNPCBeds
 {
     public class ModEntry : Mod

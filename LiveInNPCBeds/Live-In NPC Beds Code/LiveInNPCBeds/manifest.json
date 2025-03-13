@@ -8,9 +8,11 @@
 	"MinimumApiVersion": "4.1.10",
 	"UpdateKeys": [],
 	"Dependencies": [
+		 {
+			"UniqueID": "Pathoschild.ContentPatcher"
+		 },
 		{
-			"UniqueID": "kanzaki.ExpandNPCPaths",
-			"MinimumVersion": ""
+			"UniqueID": "kanzaki.ExpandNPCPaths"
 		}
 	]
 }

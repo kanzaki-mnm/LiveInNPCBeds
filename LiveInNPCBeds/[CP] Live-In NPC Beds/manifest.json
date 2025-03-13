@@ -1,0 +1,16 @@
+{
+    "Name": "Live-In NPC Beds (Content Patcher)",
+    "Author": "kanzaki",
+    "Version": "1.0.0",
+    "Description": "Adds furniture for live-in NPCs via Content Patcher.",
+    "UniqueID": "kanzaki.LiveInNPCBeds-CP",
+    "MinimumApiVersion": "3.0.0",
+    "UpdateKeys": [],
+    "ContentPackFor": { "UniqueID": "Pathoschild.ContentPatcher" },
+    "Dependencies": [
+        {
+            "UniqueID": "kanzaki.LiveInNPCBeds-Code",
+            "IsRequired": true
+        }
+    ]
+}
